@@ -1,114 +1,12 @@
-// imports
-// npm i express
-// npm i body-parser
+const express = require('express') ;
+const Responcer = require('../module/Responcer') ;
+const { faillingId, faillingString, faillingBool } = require('../module/faillingTest') ; 
+const client = require('../module/clientData')
+
+const ticketsRouter = express.Router() ;
 
 
-const express = require('express');
-const { Client } = require('pg');
-require('dotenv').config()
-
-// declarations
-const app = express();
-const port = 8000;
-
-const client = new Client({
-    user: process.env.DB_USERNAME,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME, 
-    password: process.env.DB_PASSWORD,
-    port: 5432,
-});
-
-function faillingId(id){
-    return Number.isNaN(Number(id)) ||  id % 1 !== 0 || typeof id === typeof Boolean()
-}
-
-function faillingMessage(message){
-    return message !== undefined  && typeof message != typeof String()
-}
-
-function faillingDone(done){
-    return done !== undefined && typeof done != typeof Boolean()
-}
-/**
- * @status      => 500
- * @message     => "Erreur serveur"
- * @data        => undefined
- */
-class Responcer {
-    constructor(conf = {}) {
-        this.status = conf.status       ||  500
-        this.message = conf.message     ||  "Erreur serveur"
-        this.data = conf.status         ||  undefined
-    }
-
-    statusStr(){
-        return (200 <= this.status && this.status <300) ? "SUCCESS" : "FAIL"
-    }
-
-    send(response){
-        return response.status(this.status).json({
-            status: this.statusStr(),
-            message: this.message,
-            data: this.data
-        })
-    }
-
-    info(){
-        return `${this.status} | ${this.statusStr()}\n${this.message}`
-    }
-}
-
-
-client.connect();
-
-app.use(express.json());
-app.use(function (req, res, next) {
-
-    // Website you wish to allow to connect
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
-
-    // Request methods you wish to allow
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-
-    // Request headers you wish to allow
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-
-    // Set to true if you need the website to include cookies in the requests sent
-    // to the API (e.g. in case you use sessions)
-    res.setHeader('Access-Control-Allow-Credentials', true);
-
-    // Pass to next layer of middleware
-    next();
-});
-
-
-// ROUTES -----------------------
-
-// Récupération des Users
-app.get('/api/users', async (req , res) => 
-{
-    let rpcr = new Responcer()
-
-    try 
-    {
-        const data = await client.query('SELECT id, username FROM users');
-        
-        rpcr.status = 200 ;
-        rpcr.message = `Récupération de ${data.rowCount} utilisateurs` ;
-        rpcr.data = data.rows ;
-        
-    }
-    catch (err) 
-    {
-        console.log(err.stack);
-    }
-    console.log(`get | /api/users | ${rpcr.info()}`);
-    res = rpcr.send(res)
-})
-
-// Récupération des Tickets
-app.get('/api/tickets', async (req, res) => 
+ticketsRouter.get('/', async (req, res) => 
 {
     let rpcr = new Responcer()
     
@@ -129,8 +27,7 @@ app.get('/api/tickets', async (req, res) =>
 })
 
 
-// Récupération d'un Ticket avec son id
-app.get('/api/tickets/:id', async (req, res) => 
+ticketsRouter.get('/:id', async (req, res) => 
 {
     let rpcr = new Responcer()
     const id = req.params.id
@@ -168,9 +65,7 @@ app.get('/api/tickets/:id', async (req, res) =>
     res = rpcr.send(res)
 })
 
-
-// Création d'un Ticket
-app.post('/api/tickets', async (req, res) => 
+ticketsRouter.post('/', async (req, res) => 
 {
     let rpcr = new Responcer()
     const { user_id, message} = req.body;
@@ -181,7 +76,7 @@ app.post('/api/tickets', async (req, res) =>
         rpcr.status = 400 ;
         rpcr.message = `${user_id} n'est pas un nombre entier` ;
     } 
-    else if (faillingMessage(message))
+    else if (faillingString(message))
     {
         rpcr.status = 400 ;
         rpcr.message = `${message} n'est pas un texte` ;
@@ -225,8 +120,7 @@ app.post('/api/tickets', async (req, res) =>
     res = rpcr.send(res)
 })
 
-// Modification d'un Ticket
-app.put('/api/tickets', async (req, res) => 
+ticketsRouter.put('/', async (req, res) => 
 {
     let rpcr = new Responcer()
     const { id, message, done} = req.body;
@@ -244,14 +138,14 @@ app.put('/api/tickets', async (req, res) =>
         rpcr.message = `${id} n'est pas un nombre entier` ;
     }
     // Vérifiction du Type du message entrant
-    else if (faillingMessage(message))
+    else if (faillingString(message))
     {
         rpcr.status = 400 ;
         rpcr.message = `${message} n'est pas un texte` ;
     }
 
     // Vérifiction du Type du done entrant
-    else if (faillingDone(done))
+    else if (faillingBool(done))
     {
         rpcr.status = 400 ;
         rpcr.message = `${done} n'est pas un booleen` ;
@@ -298,8 +192,7 @@ app.put('/api/tickets', async (req, res) =>
     res = rpcr.send(res)
 })
 
-// Suppression d'un Ticket
-app.delete('/api/tickets/:id', async (req, res) => 
+ticketsRouter.delete('/:id', async (req, res) => 
 {
     let rpcr = new Responcer()
     const id = req.params.id;
@@ -337,35 +230,4 @@ app.delete('/api/tickets/:id', async (req, res) =>
     res = rpcr.send(res)
 })
 
-app.all('*', async (req, res) => 
-{
-    let rpcr = new Responcer({
-        status : 404,
-        message : `Cette requête n'existe pas`
-    })
-    console.log(`* | ${rpcr.info()}`);
-    console.log(req);
-    res = rpcr.send(res)
-});
-
-// ecoute le port 8000
-app.listen(port, () => {
-    console.log(`Example app listening on port http://localhost:${port}`)
-})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+module.exports = ticketsRouter;
