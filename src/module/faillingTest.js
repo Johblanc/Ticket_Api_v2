@@ -5,12 +5,13 @@ function faillingId(id){
 }
 
 
-function faillingString(message){
-    return message !== undefined  && typeof message != typeof String()
+function faillingString(message = undefined){
+    return message === undefined  || typeof message != typeof String()
 }
 
-function faillingBool(done){
-    return done !== undefined && typeof done != typeof Boolean()
+function faillingBool(done = undefined){
+    console.log(done);
+    return done === undefined || typeof done != typeof Boolean()
 }
 
 module.exports = {
