@@ -5,7 +5,8 @@ const client = require('../module/clientData')
 const bcrypt = require('bcrypt');
 
 const jwt = require('jsonwebtoken');
-const accessTokenSecret = 'youraccesstokensecret';
+const accessTokenSecret = process.env.SECRET_TOKEN ;
+
 
 const usersRouter = express.Router();
 

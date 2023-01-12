@@ -1,12 +1,14 @@
 const express = require('express') ;
+
 const Responcer = require('../module/Responcer') ;
 const { faillingId, faillingString, faillingBool } = require('../module/faillingTest') ; 
 const client = require('../module/clientData')
+const authenticateJWT = require('../middleware/auth')
 
 const ticketsRouter = express.Router() ;
 
 
-ticketsRouter.get('/', async (req, res) => 
+ticketsRouter.get('/', authenticateJWT , async (req, res) => 
 {
     let rpcr = new Responcer(req, res) ;
     
@@ -27,7 +29,7 @@ ticketsRouter.get('/', async (req, res) =>
 })
 
 
-ticketsRouter.get('/:id', async (req, res) => 
+ticketsRouter.get('/:id', authenticateJWT ,  async (req, res) => 
 {
     let rpcr = new Responcer(req, res) ;
     const id = req.params.id
@@ -67,13 +69,13 @@ ticketsRouter.get('/:id', async (req, res) =>
     }
 })
 
-ticketsRouter.post('/', async (req, res) => 
+ticketsRouter.post('/', authenticateJWT ,  async (req, res) => 
 {
     let rpcr = new Responcer(req, res) ;
-    const { user_id, message} = req.body;
+    const { tokenId, message} = req.body;
 
     // Vérifiction du Type du user_id entrant
-    if (faillingId(user_id) || faillingString(message))
+    if (faillingId(tokenId) || faillingString(message))
     {
         rpcr.status = 400 ;
         rpcr.message = `Structure incorrect : { message : string , user_id : number }` ;
@@ -82,24 +84,12 @@ ticketsRouter.post('/', async (req, res) =>
     
     try 
     {
-        const usersList = await client.query('SELECT id FROM users WHERE id = $1',[user_id]);
+        const data = await client.query('INSERT INTO tickets (message, user_id) VALUES ($1,$2) RETURNING *', [message, tokenId]);
 
-        // Vérifiction de l'existence du user_id
-        if (usersList.rowCount === 1)
-        {
-            const data = await client.query('INSERT INTO tickets (message, user_id) VALUES ($1,$2) RETURNING *', [message, user_id]);
-
-            rpcr.status = 201 ;
-            rpcr.message = `Création du ticket ${data.rows[0].id}` ;
-            rpcr.data = data.rows[0] ;
-            rpcr.send() ;
-        } 
-        else 
-        {
-            rpcr.status = 404 ;
-            rpcr.message = `L'utilisateur ${user_id} n'existe pas` ;
-            rpcr.send() ;
-        }
+        rpcr.status = 201 ;
+        rpcr.message = `Création du ticket ${data.rows[0].id}` ;
+        rpcr.data = data.rows[0] ;
+        rpcr.send() ;
     }
     catch (err) 
     {
@@ -108,10 +98,10 @@ ticketsRouter.post('/', async (req, res) =>
     }
 })
 
-ticketsRouter.put('/', async (req, res) => 
+ticketsRouter.put('/', authenticateJWT ,  async (req, res) => 
 {
     let rpcr = new Responcer(req, res) ;
-    const { id, message, done} = req.body;
+    const { id, message, done, tokenID} = req.body;
 
     // Vérifiction de la presence des paramètres nécessaires
     if (faillingId(id) || (faillingString(message) && faillingBool(done))) 
@@ -123,10 +113,15 @@ ticketsRouter.put('/', async (req, res) =>
 
     try 
     {
-        let data
-        
+        const verificator = await client.query('SELECT * FROM tickets WHERE id = $1 AND user_id = $2',[id, tokenID])
+        if(verificator.rowCount === 0)
+        {
+            rpcr.status = 404 ;
+            rpcr.message = `Ce ticket ne vous appartient pas` ;
+            rpcr.send() ;
+        };
         // Exécution de la bonne requête en fonction des paramètres
-        console.log(faillingString(message) , faillingBool(done));
+        let data ;
         if ( ! (faillingString(message) || faillingBool(done))) 
         {
             data = await client.query('UPDATE tickets SET message = $1, done = $2 WHERE id = $3 RETURNING *', [message, done, id]);
@@ -162,10 +157,11 @@ ticketsRouter.put('/', async (req, res) =>
     }
 })
 
-ticketsRouter.delete('/:id', async (req, res) => 
+ticketsRouter.delete('/:id', authenticateJWT ,  async (req, res) => 
 {
     let rpcr = new Responcer(req, res) ;
     const id = req.params.id;
+    const tokenID = req.body.tokenId;
 
     // Vérifiction du Type de l'id entrante
     if (faillingId(id))
@@ -176,6 +172,14 @@ ticketsRouter.delete('/:id', async (req, res) =>
     }
     try 
     {
+        const verificator = await client.query('SELECT * FROM tickets WHERE id = $1 AND user_id = $2',[id, tokenID])
+        if(verificator.rowCount === 0)
+        {
+            rpcr.status = 404 ;
+            rpcr.message = `Ce ticket ne vous appartient pas` ;
+            rpcr.send() ;
+        };
+
         const data = await client.query('DELETE FROM tickets WHERE id = $1', [id]);
         
         // Vérifiction de l'existence de l'id

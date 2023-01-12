@@ -2,17 +2,18 @@
 // npm i express
 // npm i body-parser
 
+const express = require('express');
+
+require('dotenv').config()
+
 const ticketsRouter = require('./routes/ticketsRouter');
 const usersRouter = require('./routes/usersRouter');
 const Responcer = require('./module/Responcer') ;
 
-const express = require('express');
 
 // declarations
 const app = express();
 const port = 8000;
-
-
 
 app.use(express.json());
 app.use(function (req, res, next) {

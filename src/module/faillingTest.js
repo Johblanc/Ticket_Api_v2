@@ -10,7 +10,6 @@ function faillingString(message = undefined){
 }
 
 function faillingBool(done = undefined){
-    console.log(done);
     return done === undefined || typeof done != typeof Boolean()
 }
 
